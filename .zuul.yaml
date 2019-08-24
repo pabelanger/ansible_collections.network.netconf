@@ -1,0 +1,7 @@
+---
+- project:
+    check:
+      jobs:
+        - ansible-test-network-integration-netconf-junos-python27:
+            vars:
+              ansible_test_collections: true
