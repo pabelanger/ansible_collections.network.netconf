@@ -2,7 +2,7 @@
 - debug: msg="START netconf_get junos/basic.yaml on connection={{ ansible_connection }}"
 
 - name: Configure syslog file - setup
-  junos_config:
+  juniper.junos.junos_config:
     lines:
     - set system syslog file test1 any any
   register: result
@@ -119,7 +119,7 @@
       - "'filter value \\'configuration/state\\' of type xpath is not supported' in result.msg"
 
 - name: Configure syslog file - teardown
-  junos_config:
+  juniper.junos.junos_config:
     lines:
     - delete system syslog file test1 any any
 

@@ -2,7 +2,7 @@
 - debug: msg="START netconf_get iosxr/basic.yaml on connection={{ ansible_connection }}"
 
 - name: setup interface
-  iosxr_config:
+  cisco.iosxr.iosxr_config:
     commands:
       - description this is test interface Loopback999
       - no shutdown
@@ -151,7 +151,7 @@
       - "'filter value \\'configuration/state\\' of type xpath is not supported' in result.msg"
 
 - name: setup - teardown
-  iosxr_config:
+  cisco.iosxr.iosxr_config:
     commands:
       - no description
       - shutdown

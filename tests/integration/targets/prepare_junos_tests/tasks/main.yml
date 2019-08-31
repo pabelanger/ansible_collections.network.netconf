@@ -2,7 +2,7 @@
 - debug: msg="START prepare_junos_tests/main.yaml"
 
 - name: Ensure netconf is enabled
-  junos_netconf:
+  juniper.junos.junos_netconf:
     state: present
   connection: network_cli
   tags: netconf
