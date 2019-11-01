@@ -172,6 +172,15 @@ options:
         type: path
     type: dict
     version_added: "2.8"
+  get_filter:
+    description:
+      - This argument specifies the XML string which acts as a filter to restrict the portions of
+        the data retrieved from the remote device when comparing the before and after state of the
+        device following calls to edit_config. When not specified, the entire configuration or
+        state data is returned for comparison depending on the value of C(source) option. The C(get_filter)
+        value can be either XML string or XPath, if the filter is in XPath format the NETCONF server
+        running on remote host should support xpath capability else it will result in an error.
+    version_added: "2.10"
 requirements:
   - "ncclient"
 notes:
@@ -261,10 +270,28 @@ from ansible_collections.network.netconf.plugins.module_utils.network.netconf.ne
     sanitize_xml,
 )
 
+import sys
+
 try:
-    from lxml.etree import tostring
+    from lxml.etree import tostring, fromstring, XMLSyntaxError
 except ImportError:
-    from xml.etree.ElementTree import tostring
+    from xml.etree.ElementTree import tostring, fromstring
+
+    if sys.version_info < (2, 7):
+        from xml.parsers.expat import ExpatError as XMLSyntaxError
+    else:
+        from xml.etree.ElementTree import ParseError as XMLSyntaxError
+
+
+def get_filter_type(filter):
+    if not filter:
+        return None
+    else:
+        try:
+            fromstring(filter)
+            return "subtree"
+        except XMLSyntaxError:
+            return "xpath"
 
 
 def main():
@@ -300,6 +327,7 @@ def main():
         delete=dict(type="bool", default=False),
         commit=dict(type="bool", default=True),
         validate=dict(type="bool", default=False),
+        get_filter=dict(),
     )
 
     # deprecated options
@@ -361,6 +389,8 @@ def main():
     confirm = module.params["confirm"]
     validate = module.params["validate"]
     save = module.params["save"]
+    filter = module.params["get_filter"]
+    filter_type = get_filter_type(filter)
 
     conn = Connection(module._socket_path)
     capabilities = get_capabilities(module)
@@ -414,6 +444,14 @@ def main():
             msg="validate is not supported by this netconf server"
         )
 
+    if filter_type == "xpath" and not operations.get("supports_xpath", False):
+        module.fail_json(
+            msg="filter value '%s' of type xpath is not supported on this device"
+            % filter
+        )
+
+    filter_spec = (filter_type, filter) if filter_type else None
+
     if lock == "never":
         execute_lock = False
     elif target in operations.get("lock_datastore", []):
@@ -436,7 +474,9 @@ def main():
     locked = False
     try:
         if module.params["backup"]:
-            response = get_config(module, target, lock=execute_lock)
+            response = get_config(
+                module, target, filter_spec, lock=execute_lock
+            )
             before = to_text(
                 tostring(response), errors="surrogate_then_replace"
             ).strip()
@@ -468,7 +508,7 @@ def main():
                 locked = True
             if before is None:
                 before = to_text(
-                    conn.get_config(source=target),
+                    conn.get_config(source=target, filter=filter_spec),
                     errors="surrogate_then_replace",
                 ).strip()
 
@@ -484,7 +524,7 @@ def main():
 
             if supports_commit and module.params["commit"]:
                 after = to_text(
-                    conn.get_config(source="candidate"),
+                    conn.get_config(source="candidate", filter=filter_spec),
                     errors="surrogate_then_replace",
                 ).strip()
                 if not module.check_mode:
@@ -498,7 +538,7 @@ def main():
 
             if after is None:
                 after = to_text(
-                    conn.get_config(source="running"),
+                    conn.get_config(source="running", filter=filter_spec),
                     errors="surrogate_then_replace",
                 ).strip()
 
