@@ -1,8 +1,0 @@
----
-authors:
-  - Ansible Network Community (ansible-network)
-license_file: LICENSE
-name: netconf
-namespace: network
-readme: README.rst
-repository: https://github.com/ansible-network/ansible_collections.network.netconf
